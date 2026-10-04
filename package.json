@@ -1,0 +1,35 @@
+{
+  "name": "clear-sheet-viewer",
+  "version": "1.0.0",
+  "description": "Read-only Excel and CSV viewer for Windows",
+  "author": "Clear Sheet",
+  "private": true,
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "npm run build:electron && concurrently -k \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron . --dev\"",
+    "build:electron": "tsc -p tsconfig.electron.json",
+    "build": "tsc --noEmit && vite build && npm run build:electron",
+    "start": "electron .",
+    "test": "npm run build && node tests/smoke.cjs",
+    "dist": "npm run build && electron-builder --win nsis --x64"
+  },
+  "dependencies": {
+    "@emotion/react": "^11.14.0", "@emotion/styled": "^11.14.0",
+    "@mui/material": "^7.3.0", "ag-grid-community": "^34.3.0", "ag-grid-react": "^34.3.0",
+    "react": "^19.1.0", "react-dom": "^19.1.0", "zustand": "^5.0.8",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0", "@types/react": "^19.1.0", "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^4.7.0", "vite": "^6.4.0", "typescript": "^5.9.0",
+    "electron": "^40.0.0", "electron-builder": "^26.0.12", "concurrently": "^9.2.0", "wait-on": "^8.0.4", "playwright": "^1.55.0"
+  },
+  "build": {
+    "appId": "com.clearsheet.viewer", "productName": "Clear Sheet",
+    "directories": { "output": "release" }, "files": ["dist/**/*", "dist-electron/**/*", "package.json"],
+    "asar": true,
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }], "signAndEditExecutable": false },
+    "nsis": { "oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "createDesktopShortcut": true },
+    "fileAssociations": [{ "ext": ["xlsx", "xls", "xlsm", "xlsb", "csv"], "name": "Spreadsheet", "role": "Viewer" }]
+  }
+}
