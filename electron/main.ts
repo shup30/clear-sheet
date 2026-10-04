@@ -5,10 +5,10 @@ import {pathToFileURL} from 'node:url';
 import {stat,readFile,writeFile,rename,unlink,open} from 'node:fs/promises';
 import {randomBytes} from 'node:crypto';
 import type {Book,Result,Sheet} from './types';
-const profile=app.commandLine.getSwitchValue('user-data-dir') || (!app.isPackaged ? process.env.CLEAR_SHEET_TEST_USER_DATA : undefined);
+const profile=app.commandLine.getSwitchValue('user-data-dir') || (!app.isPackaged ? process.env.CLEAR_SHEET_TEST_USER_DATA : undefined) || ((process.argv.includes('--dev')||app.commandLine.hasSwitch('dev'))&&!app.isPackaged ? join(app.getPath('appData'),'clear-sheet-dev') : undefined);
 if(profile)app.setPath('userData',resolve(profile));
 const extensions=['xlsx','xls','xlsm','xlsb','csv'];
-const dev=process.argv.includes('--dev')&&!app.isPackaged;
+const dev=(process.argv.includes('--dev')||app.commandLine.hasSwitch('dev'))&&!app.isPackaged;
 let win:BrowserWindow;
 let worker:Worker|undefined;
 let sequence=0;
@@ -77,11 +77,11 @@ function handle<Args extends unknown[],T>(channel:string,action:(...args:Args)=>
     try{return {ok:true,data:await task};}catch(e){return {ok:false,error:e instanceof Error?e.message:'Unexpected error.'};}
   });
 }
-if(!app.requestSingleInstanceLock())app.quit();
+if(!dev && !app.requestSingleInstanceLock())app.quit();
 else {
   app.on('second-instance',(_event,argv)=>{pendingPath=argv.find(p=>extensions.includes(extname(p).slice(1).toLowerCase()));if(win){if(win.isMinimized())win.restore();win.focus();win.webContents.send('viewer:request-open');}});
   app.whenReady().then(()=>{
-    win=new BrowserWindow({width:1360,height:860,minWidth:800,minHeight:500,show:false,backgroundColor:'#f7f9fb',webPreferences:{preload:join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
+    win=new BrowserWindow({width:1360,height:860,minWidth:800,minHeight:500,show:false,icon:app.isPackaged?join(process.resourcesPath,'icon.ico'):join(__dirname,'../build/icon.ico'),backgroundColor:'#f7f9fb',webPreferences:{preload:join(__dirname,'preload.js'),contextIsolation:true,nodeIntegration:false,sandbox:true,webSecurity:true}});
     win.webContents.on('page-title-updated',event=>{event.preventDefault();win.setTitle(`Clear Sheet ${app.getVersion()}`);});
     win.webContents.on('will-prevent-unload', event => {
       const choice=dialog.showMessageBoxSync(win,{type:'warning',buttons:['Keep editing','Discard and close'],defaultId:0,cancelId:0,title:'Unsaved changes',message:'Unsaved changes or a save in progress. Close without saving?'});

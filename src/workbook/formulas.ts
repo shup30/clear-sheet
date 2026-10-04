@@ -10,6 +10,7 @@ export const ERR_REF = '#REF!';
 export const ERR_NAME = '#NAME?';
 export const ERR_NA = '#N/A';
 export const ERR_CYCLE = '#CYCLE!';
+export const ERR_NUM = '#NUM!';
 
 export function isErr(v: EvalVal): v is { err: string } {
   return typeof v === 'object' && v !== null && 'err' in (v as object);
@@ -1203,6 +1204,230 @@ const FUNCTIONS: Record<string, Fn> = {
     if (v === undefined) return { err: ERR_VALUE };
     if (isErr(v)) return v;
     return typeof v === 'string';
+  },
+  COUNTIFS(args) {
+    if (args.length < 2 || args.length % 2 !== 0) return { err: ERR_VALUE };
+    const r0 = args[0].range();
+    if ('err' in r0) return { err: r0.err };
+    const n = r0.vals.length;
+    const critRanges: EvalVal[][] = [r0.vals];
+    const critVals: EvalVal[] = [];
+
+    const c0 = args[1].val();
+    if (isErr(c0)) return c0;
+    critVals.push(c0);
+
+    for (let k = 1; k < args.length / 2; k++) {
+      const r = args[2 * k].range();
+      if ('err' in r) return { err: r.err };
+      if (r.vals.length !== n) return { err: ERR_VALUE };
+      critRanges.push(r.vals);
+      const c = args[2 * k + 1].val();
+      if (isErr(c)) return c;
+      critVals.push(c);
+    }
+
+    let count = 0;
+    for (let i = 0; i < n; i++) {
+      let match = true;
+      for (let k = 0; k < critRanges.length; k++) {
+        if (!matchCriteria(critRanges[k][i], critVals[k])) {
+          match = false;
+          break;
+        }
+      }
+      if (match) count++;
+    }
+    return count;
+  },
+  SUMIFS(args) {
+    if (args.length < 3 || args.length % 2 === 0) return { err: ERR_VALUE };
+    const sumR = args[0].range();
+    if ('err' in sumR) return { err: sumR.err };
+    const n = sumR.vals.length;
+    const critRanges: EvalVal[][] = [];
+    const critVals: EvalVal[] = [];
+
+    for (let k = 0; k < (args.length - 1) / 2; k++) {
+      const r = args[1 + 2 * k].range();
+      if ('err' in r) return { err: r.err };
+      if (r.vals.length !== n) return { err: ERR_VALUE };
+      critRanges.push(r.vals);
+      const c = args[2 + 2 * k].val();
+      if (isErr(c)) return c;
+      critVals.push(c);
+    }
+
+    let sum = 0;
+    for (let i = 0; i < n; i++) {
+      let match = true;
+      for (let k = 0; k < critRanges.length; k++) {
+        if (!matchCriteria(critRanges[k][i], critVals[k])) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        const v = sumR.vals[i];
+        if (isErr(v)) return v;
+        const num = toNumber(v);
+        if (num === null) return { err: ERR_VALUE };
+        sum += num;
+      }
+    }
+    return sum;
+  },
+  AVERAGEIFS(args) {
+    if (args.length < 3 || args.length % 2 === 0) return { err: ERR_VALUE };
+    const avgR = args[0].range();
+    if ('err' in avgR) return { err: avgR.err };
+    const n = avgR.vals.length;
+    const critRanges: EvalVal[][] = [];
+    const critVals: EvalVal[] = [];
+
+    for (let k = 0; k < (args.length - 1) / 2; k++) {
+      const r = args[1 + 2 * k].range();
+      if ('err' in r) return { err: r.err };
+      if (r.vals.length !== n) return { err: ERR_VALUE };
+      critRanges.push(r.vals);
+      const c = args[2 + 2 * k].val();
+      if (isErr(c)) return c;
+      critVals.push(c);
+    }
+
+    const matchedNums: number[] = [];
+    for (let i = 0; i < n; i++) {
+      let match = true;
+      for (let k = 0; k < critRanges.length; k++) {
+        if (!matchCriteria(critRanges[k][i], critVals[k])) {
+          match = false;
+          break;
+        }
+      }
+      if (match) {
+        const v = avgR.vals[i];
+        if (isErr(v)) return v;
+        if (typeof v === 'number') matchedNums.push(v);
+      }
+    }
+    if (!matchedNums.length) return { err: ERR_DIV };
+    return matchedNums.reduce((a, b) => a + b, 0) / matchedNums.length;
+  },
+  IFS(args) {
+    if (args.length < 2 || args.length % 2 !== 0) return { err: ERR_VALUE };
+    for (let i = 0; i < args.length; i += 2) {
+      const cond = args[i].val();
+      if (isErr(cond)) return cond;
+      const b = toBool(cond);
+      if (b === null) return { err: ERR_VALUE };
+      if (b) return args[i + 1].val();
+    }
+    return { err: ERR_NA };
+  },
+  SWITCH(args) {
+    if (args.length < 3) return { err: ERR_VALUE };
+    const target = args[0].val();
+    if (isErr(target)) return target;
+    const hasDefault = (args.length - 1) % 2 === 1;
+    const numPairs = hasDefault ? args.length - 2 : args.length - 1;
+    for (let i = 1; i <= numPairs; i += 2) {
+      const caseVal = args[i].val();
+      if (isErr(caseVal)) return caseVal;
+      if (compare('=', target, caseVal)) {
+        return args[i + 1].val();
+      }
+    }
+    if (hasDefault) {
+      return args[args.length - 1].val();
+    }
+    return { err: ERR_NA };
+  },
+  MEDIAN(args) {
+    const f = flattenivals(args);
+    if (f.err) return { err: f.err };
+    const ns = numsOf(f.vals.filter(v => v !== null));
+    if (!ns.length) return { err: ERR_NUM };
+    ns.sort((a, b) => a - b);
+    const mid = Math.floor(ns.length / 2);
+    return ns.length % 2 !== 0 ? ns[mid] : (ns[mid - 1] + ns[mid]) / 2;
+  },
+  STDEV(args) {
+    return FUNCTIONS['STDEV.S'](args, '', args as never as FormulaEngine);
+  },
+  'STDEV.S'(args) {
+    const f = flattenivals(args);
+    if (f.err) return { err: f.err };
+    const ns = numsOf(f.vals.filter(v => v !== null));
+    if (ns.length < 2) return { err: ERR_DIV };
+    const mean = ns.reduce((a, b) => a + b, 0) / ns.length;
+    const ss = ns.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0);
+    return Math.sqrt(ss / (ns.length - 1));
+  },
+  'STDEV.P'(args) {
+    const f = flattenivals(args);
+    if (f.err) return { err: f.err };
+    const ns = numsOf(f.vals.filter(v => v !== null));
+    if (!ns.length) return { err: ERR_DIV };
+    const mean = ns.reduce((a, b) => a + b, 0) / ns.length;
+    const ss = ns.reduce((acc, v) => acc + Math.pow(v - mean, 2), 0);
+    return Math.sqrt(ss / ns.length);
+  },
+  PMT(args) {
+    if (args.length < 3 || args.length > 5) return { err: ERR_VALUE };
+    const r = toNumber(args[0].val());
+    const n = toNumber(args[1].val());
+    const p = toNumber(args[2].val());
+    if (r === null || n === null || p === null) return { err: ERR_VALUE };
+    let fv = 0;
+    if (args[3]) {
+      const fvNum = toNumber(args[3].val());
+      if (fvNum === null) return { err: ERR_VALUE };
+      fv = fvNum;
+    }
+    let type = 0;
+    if (args[4]) {
+      const typeNum = toNumber(args[4].val());
+      if (typeNum === null) return { err: ERR_VALUE };
+      type = typeNum !== 0 ? 1 : 0;
+    }
+    if (r === 0) return -(p + fv) / n;
+    const pvif = Math.pow(1 + r, n);
+    let pmt = (r / (pvif - 1)) * -(p * pvif + fv);
+    if (type === 1) pmt /= (1 + r);
+    return pmt;
+  },
+  SEQUENCE(args) {
+    if (!args.length) return { err: ERR_VALUE };
+    const r = toNumber(args[0].val());
+    if (r === null || r < 1) return { err: ERR_VALUE };
+    const start = args[2] ? toNumber(args[2].val()) : 1;
+    if (start === null) return { err: ERR_VALUE };
+    return start;
+  },
+  SORT(args, from, eng) {
+    if (!args.length) return { err: ERR_VALUE };
+    const g = eng.gridOf(args[0], from, new Set());
+    if ('err' in g) return { err: g.err };
+    const colIdx = args[1] ? toNumber(args[1].val()) : 1;
+    if (colIdx === null) return { err: ERR_VALUE };
+    const ci = Math.trunc(colIdx) - 1;
+    if (ci < 0 || ci >= g.cols) return { err: ERR_REF };
+    const order = args[2] ? toNumber(args[2].val()) : 1;
+    const desc = order === -1;
+    const rows = [...g.grid];
+    rows.sort((a, b) => {
+      const cmp = compare('<', a[ci], b[ci]);
+      const eq = compare('=', a[ci], b[ci]);
+      if (eq) return 0;
+      return (cmp ? -1 : 1) * (desc ? -1 : 1);
+    });
+    return rows[0]?.[0] ?? null;
+  },
+  UNIQUE(args, from, eng) {
+    if (!args.length) return { err: ERR_VALUE };
+    const g = eng.gridOf(args[0], from, new Set());
+    if ('err' in g) return { err: g.err };
+    return g.grid[0]?.[0] ?? null;
   },
 };
 

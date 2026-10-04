@@ -78,3 +78,38 @@ export function parseRange(token: string): Range | null {
   }
   return null;
 }
+
+export function cycleRefAbsolute(expr: string, pos: number): { nextExpr: string; nextPos: number } {
+  const regex = /"(?:[^"]|"")*"|(\$?[A-Za-z]{1,3})(\$?[0-9]{1,7})/g;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(expr)) !== null) {
+    if (match[0].startsWith('"')) continue;
+    const start = match.index;
+    const end = start + match[0].length;
+    if (pos >= start && pos <= end) {
+      const colPart = match[1];
+      const rowPart = match[2];
+      const hasColDollar = colPart.startsWith('$');
+      const hasRowDollar = rowPart.startsWith('$');
+      const pureCol = colPart.replace(/\$/g, '');
+      const pureRow = rowPart.replace(/\$/g, '');
+
+      let nextToken: string;
+      if (!hasColDollar && !hasRowDollar) {
+        nextToken = `$${pureCol}$${pureRow}`;
+      } else if (hasColDollar && hasRowDollar) {
+        nextToken = `${pureCol}$${pureRow}`;
+      } else if (!hasColDollar && hasRowDollar) {
+        nextToken = `$${pureCol}${pureRow}`;
+      } else {
+        nextToken = `${pureCol}${pureRow}`;
+      }
+
+      const nextExpr = expr.slice(0, start) + nextToken + expr.slice(end);
+      const delta = nextToken.length - match[0].length;
+      const nextPos = Math.max(start, Math.min(nextExpr.length, pos + delta));
+      return { nextExpr, nextPos };
+    }
+  }
+  return { nextExpr: expr, nextPos: pos };
+}

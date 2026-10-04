@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="green" x1="64" y1="48" x2="448" y2="464" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#20b981"/>
+      <stop offset="1" stop-color="#08785b"/>
+    </linearGradient>
+  </defs>
+  <rect x="24" y="24" width="464" height="464" rx="108" fill="url(#green)"/>
+  <path d="M144 100h156l68 68v224a20 20 0 0 1-20 20H144a20 20 0 0 1-20-20V120a20 20 0 0 1 20-20Z" fill="#fff"/>
+  <path d="M300 100v48a20 20 0 0 0 20 20h48Z" fill="#a6e7ce"/>
+  <rect x="156" y="204" width="180" height="32" rx="8" fill="#09845f"/>
+  <rect x="156" y="254" width="52" height="48" rx="7" fill="#d5f2e5"/>
+  <rect x="220" y="254" width="52" height="48" rx="7" fill="#d5f2e5"/>
+  <rect x="284" y="254" width="52" height="48" rx="7" fill="#d5f2e5"/>
+  <rect x="156" y="314" width="52" height="48" rx="7" fill="#d5f2e5"/>
+  <rect x="220" y="314" width="52" height="48" rx="7" fill="#d5f2e5"/>
+  <rect x="284" y="314" width="52" height="48" rx="7" fill="#20b981"/>
+</svg>

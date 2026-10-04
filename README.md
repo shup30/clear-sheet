@@ -15,6 +15,10 @@ npm run dist
 
 `npm start` runs the production build. `release/Clear Sheet Setup 1.0.1.exe` is the unsigned Windows x64 NSIS installer. `lint` runs TypeScript unused-local/parameter checks in both renderer and Electron; no ESLint configuration is installed. Tests build and run workbook/store integrity checks and isolated Electron viewer/editor UI tests. Tests never terminate unrelated Electron processes.
 
+## Application icon
+
+The editable icon source is `public/icon.svg`. `build/icon.png` is its preview and `build/icon.ico` contains the Windows sizes (16, 24, 32, 48, 64, 128 and 256 pixels). The browser preview uses the SVG; the desktop window, executable and installer use the ICO. To use your own Windows icon, replace `build/icon.ico`, run `npm run dist`, close Clear Sheet after saving your work, and run the new installer. Keep `public/icon.svg` and `build/icon.png` in sync when changing the design. Executable resource editing is enabled while code signing remains disabled.
+
 ## Editing and saving
 
 Cells and the formula bar edit a sparse workbook model. AG Grid displays values and keeps sorting/filtering separate from worksheet order. Editing, clipboard, formatting, dimensions, visibility, freezing and sheet operations use command history. Undo/redo stores cell deltas and small metadata snapshots; deleting a sheet retains that sheet for undo. The saved history position determines dirty state.
