@@ -1,39 +1,51 @@
-# Clear Sheet
+﻿# Clear Sheet
 
-A read-only Windows 10/11 x64 spreadsheet viewer built with Electron, React, TypeScript, Vite, MUI, SheetJS, AG Grid Community, and Zustand.
+Windows spreadsheet editor using Electron, React, TypeScript, Vite, MUI, AG Grid Community, Zustand and SheetJS CE. Opens XLSX, XLS, XLSM, XLSB and CSV.
 
-## Run and package
-
-Use Node.js 22 or newer on Windows:
+## Run and verify
 
 ```sh
-npm install
+pnpm install --frozen-lockfile
 npm run dev
+npm run typecheck
+npm run lint
 npm test
 npm run dist
 ```
 
-`npm start` runs the production build. The NSIS installer is generated in `release/`. The installer is unsigned; a signing certificate is needed for trusted publisher distribution.
+`npm start` runs the production build. `release/Clear Sheet Setup 1.0.1.exe` is the unsigned Windows x64 NSIS installer. `lint` runs TypeScript unused-local/parameter checks in both renderer and Electron; no ESLint configuration is installed. Tests build and run workbook/store integrity checks and isolated Electron viewer/editor UI tests. Tests never terminate unrelated Electron processes.
 
-## Features
+## Editing and saving
 
-- Native Open dialog, Ctrl+O, drag/drop, startup file arguments and Windows file associations.
-- XLSX, XLS, XLSM, XLSB and CSV; multiple sheet tabs, loaded on demand.
-- Virtualized rows and columns, resizable columns, original spreadsheet row/column addresses.
-- Column sorting and text filters; debounced search filters matching rows in the active sheet.
-- Zoom, formula bar, focused-cell copy with Ctrl+C, and checkbox-selected row copy as tab-separated text.
-- Ten recent files, clear history, progress and recoverable error messages.
+Cells and the formula bar edit a sparse workbook model. AG Grid displays values and keeps sorting/filtering separate from worksheet order. Editing, clipboard, formatting, dimensions, visibility, freezing and sheet operations use command history. Undo/redo stores cell deltas and small metadata snapshots; deleting a sheet retains that sheet for undo. The saved history position determines dirty state.
 
-## Architecture and limits
+Open commits a new model only after a complete parse. Saving never reloads the file over edits. Sheet switching uses the current model, including empty/cleared sheets. Only a successful save clears dirty state. Mutations are blocked during open/save. Closing unsaved work offers Keep editing or Discard and close; save first to retain changes.
 
-The renderer has no Node.js access. Electron uses sandboxing, context isolation, a narrow typed preload bridge, sender/frame validation, denied permissions, blocked navigation/new windows, and a content security policy. The main process owns the file dialog, clipboard and recent-file storage. No workbook is written, no macro is executed, and no formula is evaluated. Recent paths are stored locally in Electron's user data directory.
+**Excel inputs require an edited copy on their first save.** SheetJS CE cannot preserve every Excel feature; overwriting the source risks losing charts, styles and unsupported metadata. Both renderer and main process protect the original path. Subsequent saves update the edited copy. Reopening that copy starts a new protected session. CSV files can be updated in place.
 
-SheetJS runs in a worker thread with a 120-second request timeout and a memory limit. Opening reads sheet metadata; selecting a sheet parses that sheet on demand. The worker retains the source bytes and only the latest parsed sheet. Some legacy formats require broader internal parsing in SheetJS. AG Grid virtualizes the active preview; search and sorting operate on its loaded data.
+Save As chooses its destination and format before serialization. Main accepts writes only to authorized destinations, writes an exclusive temporary file beside the destination, flushes it, then renames it. Failure does not truncate the destination. Formulas, supported cached values, comments, hyperlinks, number formats, compatible VBA blobs, dimensions and sheet visibility metadata are retained where SheetJS supports them.
 
-Limits: 200 MB source files; 200,000 rows, 1,024 columns and 1,000,000 cell positions per preview. The UI explicitly reports truncation. Decompressed content may exhaust the worker limit even for small compressed files. Empty sheets show a blank A1. Formatted values and saved formulas are displayed, but cached formula results can be stale or absent. This MVP does not reproduce Excel layout, merged cells, charts, images, conditional formatting, password-protected workbooks, external links, or calculations. CSV encoding and delimiters use SheetJS detection. Column filters operate on displayed text; numeric sorting uses underlying numeric values.
+## Important limitations
 
-## Verification
+- XLS/XLSB formula exports are blocked because SheetJS CE drops formulas in those formats. Choose XLSX/XLSM. Macro workbooks cannot be saved into non-macro formats. CSV exports with multiple sheets are blocked. CSV stores plain values, not spreadsheet formulas/formatting.
+- Fonts, fills, borders, alignment and freeze panes are session-only with this CE writer. Number formats, row heights, column widths and hidden rows/columns persist. Unsupported Excel content remains in the untouched original; it is not promised in the edited copy.
+- The formula engine supports a subset of Excel. Unsupported expressions remain as source formulas and display an error. Original unsupported cached results are retained where possible. No macros, external links or arbitrary code run. Very deep dependency chains are bounded.
+- Structural edits involving merged cells, defined names, auto-filter ranges or array formulas are rejected. More complex references such as structured table references are not fully supported.
+- The grid materializes the active sheet, capped at 200,000 rows and 1,024 displayed columns. Saving retains the complete model. Full parsing/model construction still happens eagerly in the renderer once per open; very large workbooks can pause the UI. Fully lazy editable parsing needs a larger architectural change.
+- Edits and undo/redo patch touched rows and retain column definitions. Structural changes rebuild the active view. History is limited to 200 commands. Range mutations/copy are limited to 200,000 cells, external paste to 500,000 cells. Internal copy preserves raw values and adjusts relative formulas; cut does not implement Excel's dependent-reference retargeting.
 
-`npm test` builds and launches the real Electron app with Playwright. It checks generated fixtures in all five formats, startup opening, sheet switching, formula display, clipboard, search, numeric sorting, recent files, invalid input, renderer isolation and large-sheet truncation. A screenshot is saved to `test-output/viewer.png`.
+## Security
 
-SheetJS is installed from its [official distribution](https://docs.sheetjs.com/docs/getting-started/installation/nodejs/). The grid uses only [AG Grid Community](https://www.ag-grid.com/react-data-grid/installation/) modules; copying is implemented through Electron rather than an enterprise clipboard module.
+Sandboxed renderer, context isolation, no Node integration, typed preload bridge and validated IPC. No renderer filesystem or generic IPC access. Main-frame checks, denied permissions, blocked navigation/popups and CSP remain enabled. A local `--user-data-dir` argument isolates profiles without exposing filesystem access to the renderer.
+
+## Library references
+
+[SheetJS parsing](https://docs.sheetjs.com/docs/api/parse-options/), [writing](https://docs.sheetjs.com/docs/api/write-options/), [VBA preservation](https://docs.sheetjs.com/docs/csf/features/vba/), and [Electron unload protection](https://www.electronjs.org/docs/latest/api/web-contents#event-will-prevent-unload).
+
+
+## 1.0.1 interaction fixes
+
+- Save/Save As verifies its preload capability and reports a stale desktop session clearly. Restart the entire Electron process after changing Electron/preload code; Vite updates the UI only. Preserve any unsaved data before restarting an old session. `npm start` now rebuilds both app layers before launching.
+- Drag column borders or the bottom edge of a row-number cell to resize. Multi-column Shift-resize is one undo step. Row-height/column-width dialogs apply immediately. Sizes persist through sheet switches and save/reopen using a stable Excel width metric. Zoom changes displayed sizes without modifying stored dimensions.
+- Right-click cells or row numbers for row insert/delete and height; right-click column headers for column insert/delete and width. Checkbox-selected disjoint rows delete together, with undo restoring the entire operation. Sorting does not change which source rows are deleted.
+- `npm run test:interactions` covers these behaviors in Electron. `npm run test:packaged` verifies both CSV saves and the full interaction workflow against the packaged executable.

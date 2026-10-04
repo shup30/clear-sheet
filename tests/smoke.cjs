@@ -16,6 +16,7 @@ fs.writeFileSync(path.join(out,'broken.xlsx'),'PK\x03\x04invalid compressed work
 const file=path.join(out,'sample.xlsx');
 async function main(){
  const env={...process.env};delete env.ELECTRON_RUN_AS_NODE;
+  env.CLEAR_SHEET_TEST_USER_DATA=path.join(out,'profile-smoke.cjs-'+process.pid);fs.mkdirSync(env.CLEAR_SHEET_TEST_USER_DATA,{recursive:true});
  const app=await electron.launch({args:[path.resolve('.'),file],env});
  try {
   const page=await app.firstWindow();
@@ -28,10 +29,9 @@ async function main(){
   assert.equal(await page.getByRole('textbox',{name:'Formula bar'}).inputValue(),'=B2*2');
   await page.getByRole('button',{name:'Copy cell',exact:true}).click();
   assert.equal(await app.evaluate(({clipboard})=>clipboard.readText()),'24');
-  await page.getByRole('textbox',{name:'Search sheet'}).fill('Bob');
-  await page.waitForTimeout(350);
-  await page.getByText('Bob',{exact:true}).waitFor();
-  assert.equal(await page.getByText('Alice',{exact:true}).count(),0);
+   await page.getByRole('textbox',{name:'Search sheet'}).fill('Bob');
+   await page.getByText('Bob',{exact:true}).waitFor();
+   await page.getByText('Alice',{exact:true}).waitFor({state:'detached'});
   await page.getByRole('button',{name:'Reset filters'}).click();
   await page.getByText('Alice',{exact:true}).waitFor();
   await page.getByRole('tab',{name:'Notes',exact:true}).click();

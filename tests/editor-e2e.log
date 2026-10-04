@@ -1,0 +1,22 @@
+2026-09-18T13:04:47.218Z fixture ready
+2026-09-18T13:04:47.515Z launched
+2026-09-18T13:04:47.670Z window
+2026-09-18T13:04:48.855Z alice visible
+2026-09-18T13:04:49.048Z PASS 1 grid edit
+2026-09-18T13:04:49.148Z PASS 2 recalc
+2026-09-18T13:04:49.282Z PASS 3 formula bar
+2026-09-18T13:04:49.452Z PASS 4 undo/redo
+2026-09-18T13:04:49.681Z PASS 5 clipboard
+2026-09-18T13:04:49.886Z PASS 5b multi-cell paste and undo
+2026-09-18T13:04:50.832Z PASS 5c structural row insert/delete and undo
+2026-09-18T13:04:51.490Z PASS 6 format
+2026-09-18T13:04:52.794Z PASS 7 sheets
+2026-09-18T13:04:53.449Z PASS 8 freeze+find
+2026-09-18T13:04:53.454Z DIALOG beforeunload ""
+2026-09-18T13:04:53.709Z PASS 8b close cancelled keeps unsaved workbook
+2026-09-18T13:04:53.930Z PASS 8c cancelled and failed Save As retain dirty state and original
+2026-09-18T13:04:54.071Z PASS 9 save
+2026-09-18T13:04:54.071Z all steps done; closing
+2026-09-18T13:04:54.268Z closed cleanly
+2026-09-18T13:04:54.279Z PASS reopen verify: Sales,Notes,Renamed
+2026-09-18T13:04:54.279Z ALL EDITOR E2E TESTS PASSED
